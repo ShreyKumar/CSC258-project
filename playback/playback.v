@@ -1,15 +1,18 @@
-module counter (clock, reset, max, enable, q);
+module counter (clock, reset, load, max, enable, q);
 
     input clock;
     input reset;
+    input load;
     input [3:0] max;
     input enable;
     output reg [3:0] q;
 
-    always @(posedge clock, posedge reset)
+    always @(posedge clock, posedge load, posedge reset)
     begin
         if (reset)
-            q <= max;
+            q <= 0;
+	else if (load)
+	    q <= max;
         else if (enable == 1'b1)
             begin
                 if (q == 0)
@@ -105,6 +108,7 @@ module playback (
 
     counter PLAYBACK_COUNTER (
         .clock(clk),
+        .load(load_level),
         .reset(reset),
         .max(level_length),
         .enable(shifter_enable),

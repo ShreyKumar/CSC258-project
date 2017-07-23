@@ -39,7 +39,7 @@ run 10ns
 
 force {load_level} 1
 force {level_length} 2#0100
-force {level_data} 2#0001000100010010
+force {level_data} 2#0001001000110100
 run 10ns
 
 #clk cycle
@@ -48,6 +48,7 @@ run 10ns
 force {clk} 1
 run 10ns
 
+force {load_level} 0
 force {start_playback} 1
 run 10ns
 
