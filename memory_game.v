@@ -267,13 +267,13 @@ module playback (
 
     // duration (in clock cycles) of notes during challenge
     wire [31:0] period =  2; // 25000000;
-    wire shifter_enable;
+    wire enable;
 
     reg [3:0] ratedivider_out;
     reg [3:0] playback_note;
     reg [3:0] playback_counter_state;
 
-    assign shifter_enable = (ratedivider_out == 0) ? 1 : 0;
+    assign enable = ((ratedivider_out == 0) && start_playback) ? 1 : 0;
 
     ratedivider A0 (
         .clock(clk),
@@ -283,7 +283,7 @@ module playback (
 
     shifter PLAYBACK_SHIFTER (
         .clock(clk),
-        .enable(shifter_enable),
+        .enable(enable),
         .load(load_level),
         .reset(reset),
         .data(current_level),
@@ -295,7 +295,7 @@ module playback (
         .clock(clk),
         .reset(load_level),
         .max(current_level_length),
-        .enable(shifter_enable),
+        .enable(enable),
         .q(playback_counter_state));
 
     always@(*)
