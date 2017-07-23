@@ -1,5 +1,3 @@
-
-
 module memory_game(SW, KEY, CLOCK_50, LEDR, HEX0);
     input [9:0] SW;
     input [3:0] KEY;
@@ -7,103 +5,139 @@ module memory_game(SW, KEY, CLOCK_50, LEDR, HEX0);
     output [9:0] LEDR;
     output [6:0] HEX0;
 
-    wire resetn;
-    wire go;
-
     wire [3:0] state_display;
-    assign go = SW[1];
-    assign resetn = SW[0];
 
-    game_core u0(
+    // handles game state and logic
+    game_core G0(
         .clk(CLOCK_50),
-        .resetn(resetn),
-        .go(go),
-        .data_in(SW[7:0]),
-        .data_result(state_display)
+        .reset(SW[0]),
+        .note_inputs(KEY[3:0]),
+        .note_outputs(LEDR[3:0]),
+        .state_display(state_display)
     );
 
-    assign LEDR[9:0] = {2'b00, data_result};
-
+    // displays the current state
     hex_decoder H0(
         .hex_digit(state_display[3:0]),
         .segments(HEX0)
-        );
+    );
 
 endmodule
 
 module game_core(
     input clk,
-    input resetn,
-    input go,
-    input [7:0] data_in,
-    output [7:0] data_result
+    input reset,
+    input [3:0] note_inputs,
+    output [3:0] note_outputs,
+    output [3:0] state_display
     );
 
-    // wires
+    wire w1, w2, w3, w4, w5, w6;
 
+    // each 4-bit segment represents a note
+    reg [15:0] current_level = 16'b0001_0001_0001_0001;
+
+    // the number of notes comprising the current level
+    reg [3:0] current_level_length = 4;
+
+    // manages game state
     controller C0(
         .clk(clk),
-        .resetn(resetn),
+        .reset(reset),
 
-        .done_playback(),
-        .done_response(),
+        .current_state(state_display)
 
-        .load_level(),
-        .start_playback(),
-        .start_response(),
-        .state_out()
+        .done_playback(w1),
+        .done_response(w2),
+        .made_mistake(w3),
+        .load_level(w4),
+        .start_playback(w5),
+        .start_response(w6)
     );
 
-    datapath D0(
+    playback P0(
         .clk(clk),
-        .resetn(resetn),
+        .reset(reset),
 
-        .load_level(),
-        .start_playback(),
-        .start_response(),
-        .state_in()
+        .load_level(w4),
+        .level_data(current_level),
+        .level_length(current_level_length),
+        .start_playback(w5),
 
-        .done_playback(),
-        .done_response(),
+        .note_outputs(note_outputs),
+        .done_playback(w1)
     );
 
- endmodule
+    response R0(
+        .clk(clk),
+        .reset(reset),
+
+        .note_inputs(note_inputs),
+        .load_level(w4),
+        .level_data(current_level),
+        .level_length(current_level_length),
+        .start_response(w5),
+
+        .note_outputs(note_outputs),
+        .done_response(w1),
+        .made_mistake(w3)
+    );
+
+endmodule
 
 
-module controller(
+
+module controller (
     input clk,
-    input resetn,
-    input done_playback, done_response,
+    input reset,
 
+    output reg [3:0] current_state,
+
+    input done_playback,
+    input done_response,
+    input made_mistake,
     output reg start_playback,
     output start_response,
-    output load_level
+    output load_level,
+
     );
 
-    reg [3:0] current_state, next_state;
+    reg [3:0] next_state;
 
     localparam  START         = 4'd0,
                 LOAD          = 4'd1,
                 CHALLENGE     = 4'd2,
-                RESPONSE      = 4'd3;
+                RESPONSE      = 4'd3,
+                WON           = 4'd4,
+                LOST          = 4'd5;
 
-    // Next state logic aka our state table
+    // state transition logic
     always@(*)
     begin: state_table
             case (current_state)
-                START: next_state = go ? LOAD : START;
+                START: next_state = LOAD;
                 LOAD: next_state = CHALLENGE;
                 CHALLENGE: next_state = done_playback ? RESPONSE : CHALLENGE;
-                RESPONSE: next_state = done_response ? START : RESPONSE;
-            default:     next_state = START;
+                RESPONSE:
+                    begin
+                        if (made_mistake)
+                            next_state = LOST;
+                        else if (done_response)
+                            next_state = WIN;
+                        else
+                            next_state = RESPONSE;
+                    end
+                LOST: next_state = LOST;
+                WON: next_state = WON;
+            default: next_state = START;
         endcase
-    end // state_table
+    end
 
-
-    // Output logic aka all of our datapath control signals
+    // control signal output logic
     always @(*)
     begin: enable_signals
-        // By default make all our signals 0
+
+        // set defaults
         start_playback = 1'b0;
         start_response = 1'b0;
         load_level = 1'b0;
@@ -120,67 +154,168 @@ module controller(
             RESPONSE: begin
                 start_response = 1'b1;
                 end
+            LOST: begin
+                end
+            WIN: begin
+                end
             end
-        // default:    // don't need default since we already made sure all of our outputs were assigned a value at the start of the always block
         endcase
-    end // enable_signals
+    end
 
-    // current_state registers
+    // update state
     always@(posedge clk)
     begin: state_FFs
-        if(!resetn)
+        if(reset)
             current_state <= START;
         else
             current_state <= next_state;
-    end // state_FFS
+    end
+
 endmodule
 
-module datapath(
-    input clk,
-    input resetn,
-    input load_level,
-    input start_playback,
-    input start_response,
-    input state_in,
 
-    output done_playback,
-    output done_response
+
+module response (
+    input clk,
+    input reset,
+
+    input [15:0] level_data,
+    input [3:0] level_length,
+    input [3:0] note_inputs,
+    input load_level,
+    input start_response,
+
+    output [3:0] note_outputs,
+    output done_response,
+    output made_mistake
+
     );
 
-    wire [31:0] period;
-    assign period = 25000000; // should be 25000000
 
-    shifter PLAYBACK (
-        .clock(clk),
-        .enable(),
-        .load(),
-        .reset(resetn),
-        .data(),
-        .out());
+    reg [3:0] correct_note = 4'b0000; // default
 
-    shifter CHECK (
+    reg [3:0] response_counter_state;
+
+    reg enable_response_shifter;
+    reg enable_response_counter;
+
+    assign enable_response_counter = 1'b0;
+    assign enable_response_shifter = 1'b0;
+
+    assign key_pressed = (| note_inputs);
+    assign note_outputs = note_inputs;
+
+
+    always@(posedge clk)
+    begin
+        if (response_counter_state == 4'b0000)
+            done_response <= 1'b1;
+        else
+            done_response <= 1'b0;
+    end
+
+
+    always@(posedge key_pressed)
+    begin
+        assign note_outputs = note_inputs;
+        assign enable_response_shifter = 1'b1;
+        assign enable_response_counter = 1'b1;
+    end
+
+    always@(negedge key_pressed)
+    begin
+        if(correct_note == note_inputs) // should be prev-inputs? ie before key release?
+            made_mistake <= 1'b0;
+        else
+            made_mistake <= 1'b1;
+    end
+
+    shifter RESPONSE_SHIFTER (
         .clock(clk),
-        .enable(),
-        .load(),
-        .reset(resetn),
-        .data(),
-        .out());
+        .enable(enable_response_shifter),
+        .load(load_level),
+        .reset(reset),
+        .data(current_level),
+        .out(correct_note));
+
+    counter RESPONSE_COUNTER (
+        .clock(clk),
+        .reset_n(load_level),
+        .max(current_level_length),
+        .enable(enable_response_counter),
+        .q(response_counter_state));
+
+)
+endmodule
+
+
+
+module playback (
+    input clk,
+    input reset,
+
+    input [15:0] level_data,
+    input [3:0] level_length,
+    input load_level,
+    input start_playback,
+
+    output [3:0] note_outputs,
+    output done_playback
+
+    );
+
+    // duration (in clock cycles) of notes during challenge
+    wire [31:0] period = 25000000;
+
+    reg [3:0] ratedivider_out;
+    reg [3:0] playback_note = 4'b0000; // default
+    reg [3:0] playback_counter_state;
+    reg enable_playback;
+
+    assign enable_playback = 1'b0;
+    assign note_outputs = playback_note;
+
+    always@(posedge clk)
+    begin
+        if (playback_counter_state == 4'b0000)
+            done_playback <= 1'b1;
+        else
+            done_playback <= 1'b0;
+    end
+
+    always@(posedge ratedivider_out)
+    begin
+        if(start_playback)
+            enable_playback <= 1'b1;
+        else
+            enable_playback <= 1'b0;
+    end
+
 
     ratedivider A0 (
         .clock(clk),
         .period(period),
-        .reset_n(resetn),
-        .q());
+        .reset_n(~reset),
+        .q(ratedivider_out));
 
-    display_encoder A1 (
-    );
+    shifter PLAYBACK_SHIFTER (
+        .clock(clk),
+        .enable(enable_playback),
+        .load(load_level),
+        .reset(reset),
+        .data(current_level),
+        .out(playback_note));
 
-    input_encoder A2 (
-    );
-
+    counter PLAYBACK_COUNTER (
+        .clock(clk),
+        .reset_n(load_level),
+        .max(current_level_length),
+        .enable(enable_playback),
+        .q(playback_counter_state));
 
 )
 endmodule
+
 
 
 module hex_decoder(hex_digit, segments);
@@ -211,12 +346,11 @@ endmodule
 
 
 
-
 module shifter(clock, enable, load, reset, data, out);
 
     input clock, enable, load, reset;
     input [15:0] data;
-    output out;
+    output [3:0] out;
     reg [15:0] state;
 
     // async load and reset
@@ -227,12 +361,13 @@ module shifter(clock, enable, load, reset, data, out);
         else if (reset)
             state = 0;
         else if (enable == 1'b1)
-            state = state << 1;
+            state = state << 4;
     end
 
-    assign out = state[15];
+    assign out = state[15:12];
 
 endmodule
+
 
 
 module ratedivider (clock, period, reset_n, q);
@@ -253,6 +388,31 @@ module ratedivider (clock, period, reset_n, q);
                 else
                     q <= q - 1'b1;
         end
+    end
+
+endmodule
+
+
+
+module counter (clock, reset_n, max, enable, q);
+
+    input clock;
+    input reset_n;
+    input [3:0] max;
+    input enable;
+    output reg [3:0] q;
+
+    always @(posedge clock)
+    begin
+        if (reset_n == 1'b0)
+            q <= max;
+        else if (enable == 1'b1)
+            begin
+                if (q == 0)
+                    q <= max;
+                else
+                    q <= q - 1'b1;
+            end
     end
 
 endmodule
