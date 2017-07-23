@@ -273,7 +273,7 @@ module playback (
     reg [3:0] playback_note;
     reg [3:0] playback_counter_state;
 
-    assign shifter_enable = (ratedivider_out == 0) ? 1 : 0;
+    assign shifter_enable = ((ratedivider_out == 0) && start_playback) ? 1 : 0;
 
     ratedivider A0 (
         .clock(clk),

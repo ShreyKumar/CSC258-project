@@ -1,0 +1,90 @@
+m255
+K4
+z2
+13
+!s112 1.1
+!i10d 8192
+!i10e 25
+!i10f 100
+cModel Technology
+dC:/altera/16.0
+vcounter
+Z0 !s110 1500843438
+!i10b 1
+!s100 jb9FEQm:L_O2HoW]>zKS33
+I`JZ3ieoPiJ6z^SJh`WzH`0
+Z1 VDg1SIo80bB@j0V0VzS_@n1
+Z2 dC:/cygwin64/home/Shreyansh/UofT/CSC258/summer/project/playback
+Z3 w1500842962
+Z4 8playback.v
+Z5 Fplayback.v
+L0 1
+Z6 OV;L;10.4d;61
+r1
+!s85 0
+31
+Z7 !s108 1500843438.000000
+Z8 !s107 playback.v|
+Z9 !s90 -reportprogress|300|-timescale|1ns/1ns|playback.v|
+!i113 1
+Z10 o-timescale 1ns/1ns
+vplayback
+R0
+!i10b 1
+!s100 Tl9K[NadFE_P1?UG<3UA40
+IZ`5jSGj1c2BniKeCKhbl33
+R1
+R2
+R3
+R4
+R5
+L0 66
+R6
+r1
+!s85 0
+31
+R7
+R8
+R9
+!i113 1
+R10
+vratedivider
+R0
+!i10b 1
+!s100 :djA81zEa:nkBhAiAN7hc0
+IeIKo32zkzi^Q]QWcU;^P42
+R1
+R2
+R3
+R4
+R5
+L0 44
+R6
+r1
+!s85 0
+31
+R7
+R8
+R9
+!i113 1
+R10
+vshifter
+R0
+!i10b 1
+!s100 bTV32_JFXOZ>MTzI@fIh?2
+I2hF7fdMj;PW3ZBXF3K8Bm2
+R1
+R2
+R3
+R4
+R5
+L0 23
+R6
+r1
+!s85 0
+31
+R7
+R8
+R9
+!i113 1
+R10
