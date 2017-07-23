@@ -193,9 +193,7 @@ module response (
 
 
     reg [3:0] correct_note = 4'b0000; // default
-
     reg [3:0] response_counter_state;
-
     reg enable_response_shifter;
     reg enable_response_counter;
 
@@ -203,16 +201,7 @@ module response (
     assign enable_response_shifter = 1'b0;
 
     assign key_pressed = (| note_inputs);
-    assign note_outputs = note_inputs;
-
-
-    always@(posedge clk)
-    begin
-        if (response_counter_state == 4'b0000)
-            done_response <= 1'b1;
-        else
-            done_response <= 1'b0;
-    end
+    // assign note_outputs = note_inputs;
 
 
     always@(posedge key_pressed)
@@ -222,13 +211,6 @@ module response (
         assign enable_response_counter = 1'b1;
     end
 
-    always@(negedge key_pressed)
-    begin
-        if(correct_note == note_inputs) // should be prev-inputs? ie before key release?
-            made_mistake <= 1'b0;
-        else
-            made_mistake <= 1'b1;
-    end
 
     shifter RESPONSE_SHIFTER (
         .clock(clk),
@@ -238,12 +220,31 @@ module response (
         .data(current_level),
         .out(correct_note));
 
+
+    always@(posedge key_pressed)
+    begin
+        if(correct_note == note_inputs) // should be prev-inputs? ie before key release?
+            made_mistake <= 1'b0;
+        else
+            made_mistake <= 1'b1;
+    end
+
+
     counter RESPONSE_COUNTER (
         .clock(clk),
-        .reset_n(load_level),
+        .reset(load_level),
         .max(current_level_length),
         .enable(enable_response_counter),
         .q(response_counter_state));
+
+    always@(*)
+    begin
+            if (response_counter_state == 4'b0000)
+                done_response <= 1'b1;
+            else
+                done_response <= 1'b0;
+    end
+
 
 )
 endmodule
@@ -265,53 +266,45 @@ module playback (
     );
 
     // duration (in clock cycles) of notes during challenge
-    wire [31:0] period = 25000000;
+    wire [31:0] period =  2; // 25000000;
+    wire shifter_enable;
 
     reg [3:0] ratedivider_out;
-    reg [3:0] playback_note = 4'b0000; // default
+    reg [3:0] playback_note;
     reg [3:0] playback_counter_state;
-    reg enable_playback;
 
-    assign enable_playback = 1'b0;
+    assign shifter_enable = (ratedivider_out == 0) ? 1 : 0;
+
+    ratedivider A0 (
+        .clock(clk),
+        .period(period),
+        .reset(reset),
+        .q(ratedivider_out));
+
+    shifter PLAYBACK_SHIFTER (
+        .clock(clk),
+        .enable(shifter_enable),
+        .load(load_level),
+        .reset(reset),
+        .data(current_level),
+        .out(playback_note));
+
     assign note_outputs = playback_note;
 
-    always@(posedge clk)
+    counter PLAYBACK_COUNTER (
+        .clock(clk),
+        .reset(load_level),
+        .max(current_level_length),
+        .enable(shifter_enable),
+        .q(playback_counter_state));
+
+    always@(*)
     begin
         if (playback_counter_state == 4'b0000)
             done_playback <= 1'b1;
         else
             done_playback <= 1'b0;
     end
-
-    always@(posedge ratedivider_out)
-    begin
-        if(start_playback)
-            enable_playback <= 1'b1;
-        else
-            enable_playback <= 1'b0;
-    end
-
-
-    ratedivider A0 (
-        .clock(clk),
-        .period(period),
-        .reset_n(~reset),
-        .q(ratedivider_out));
-
-    shifter PLAYBACK_SHIFTER (
-        .clock(clk),
-        .enable(enable_playback),
-        .load(load_level),
-        .reset(reset),
-        .data(current_level),
-        .out(playback_note));
-
-    counter PLAYBACK_COUNTER (
-        .clock(clk),
-        .reset_n(load_level),
-        .max(current_level_length),
-        .enable(enable_playback),
-        .q(playback_counter_state));
 
 )
 endmodule
@@ -373,13 +366,13 @@ endmodule
 module ratedivider (clock, period, reset_n, q);
 
     input clock;
-    input reset_n;
+    input reset;
     input [31:0] period;
     output reg [31:0] q;
 
-    always @(posedge clock, posedge reset_n)
+    always @(posedge clock, posedge reset)
     begin
-        if (reset_n == 1'b0)
+        if (reset)
             q <= period - 1;
         else
             begin
@@ -394,17 +387,17 @@ endmodule
 
 
 
-module counter (clock, reset_n, max, enable, q);
+module counter (clock, reset, max, enable, q);
 
     input clock;
-    input reset_n;
+    input reset;
     input [3:0] max;
     input enable;
     output reg [3:0] q;
 
-    always @(posedge clock)
+    always @(posedge clock, posedge reset)
     begin
-        if (reset_n == 1'b0)
+        if (reset)
             q <= max;
         else if (enable == 1'b1)
             begin
