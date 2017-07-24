@@ -28,28 +28,33 @@ module game_core(
     input clk,
     input reset,
     input [3:0] note_inputs,
-    output [3:0] note_outputs,
+    output reg [3:0] note_outputs,
     output [3:0] state_display
     );
 
-    wire w1, w2, w3, w4, w5, w6;
+    wire w1, w2, w3, w4, w5, w6, w7, w8;
 
     // each 4-bit segment represents a note
-    reg [15:0] current_level = 16'b0001_0001_0001_0001;
+    reg [15:0] current_level = 16'b0001_0010_0100_1000;
 
     // the number of notes comprising the current level
     reg [3:0] current_level_length = 4;
+
+    wire [3:0] playback_out;
+    wire [3:0] response_out;
 
     // manages game state
     controller C0(
         .clk(clk),
         .reset(reset),
 
-        .current_state(state_display)
+        .current_state(state_display),
 
+	.enable_check(w8),
         .done_playback(w1),
         .done_response(w2),
         .made_mistake(w3),
+	.key_pressed(w7),
         .load_level(w4),
         .start_playback(w5),
         .start_response(w6)
@@ -64,24 +69,34 @@ module game_core(
         .level_length(current_level_length),
         .start_playback(w5),
 
-        .note_outputs(note_outputs),
+        .note_outputs(playback_out),
         .done_playback(w1)
     );
 
-    //response R0(
-    //    .clk(clk),
-    //    .reset(reset),
+    response R0(
+        .clk(clk),
+        .reset(reset),
 
-    //    .note_inputs(note_inputs),
-    //    .load_level(w4),
-    //    .level_data(current_level),
-    //    .level_length(current_level_length),
-    //    .start_response(w5),
+        .note_inputs(note_inputs),
+        .load_level(w4),
+        .level_data(current_level),
+        .level_length(current_level_length),
+        .start_response(w5),
+	.key_pressed(w7),
 
-    //    .note_outputs(note_outputs),
-    //    .done_response(w1),
-    //    .made_mistake(w3)
-    //);
+        .enable_check(w8),
+        .note_outputs(response_out),
+        .done_response(w2),
+        .made_mistake(w3)
+    );
+
+    always@(*)
+    begin
+       if (w1)
+    	   note_outputs = note_inputs;
+       else
+           note_outputs = playback_out;
+    end
 
 endmodule
 
@@ -96,9 +111,11 @@ module controller (
     input done_playback,
     input done_response,
     input made_mistake,
+    input key_pressed,
     output reg start_playback,
-    output start_response,
-    output load_level,
+    output reg start_response,
+    output reg load_level,
+    output reg enable_check
 
     );
 
@@ -107,9 +124,10 @@ module controller (
     localparam  START         = 4'd0,
                 LOAD          = 4'd1,
                 CHALLENGE     = 4'd2,
-                RESPONSE      = 4'd3,
-                WON           = 4'd4,
-                LOST          = 4'd5;
+                WAIT_RESPONSE = 4'd3,
+		RCV_RESPONSE  = 4'd4,
+                WON           = 4'd5,
+                LOST          = 4'd6;
 
     // state transition logic
     always@(*)
@@ -117,15 +135,27 @@ module controller (
             case (current_state)
                 START: next_state = LOAD;
                 LOAD: next_state = CHALLENGE;
-                CHALLENGE: next_state = done_playback ? RESPONSE : CHALLENGE;
-                RESPONSE:
+                CHALLENGE: next_state = done_playback ? WAIT_RESPONSE : CHALLENGE;
+		WAIT_RESPONSE: 
+		   begin
+			if (done_response)
+                            next_state = WON;
+			else if (made_mistake)
+			    next_state = LOST;
+			else if (key_pressed)
+			    next_state = RCV_RESPONSE;
+			else
+			    next_state = WAIT_RESPONSE;
+		   end
+			//next_state = key_pressed ? RCV_RESPONSE : WAIT_RESPONSE;
+                RCV_RESPONSE:
                     begin
-                        if (made_mistake)
+			if (done_response)
+			    next_state = WON;
+                        else if (made_mistake)
                             next_state = LOST;
-                        else if (done_response)
-                            next_state = WIN;
                         else
-                            next_state = RESPONSE;
+                            next_state = WAIT_RESPONSE;
                     end
                 LOST: next_state = LOST;
                 WON: next_state = WON;
@@ -141,6 +171,7 @@ module controller (
         start_playback = 1'b0;
         start_response = 1'b0;
         load_level = 1'b0;
+	enable_check = 1'b0;
 
         case (current_state)
             START: begin
@@ -151,14 +182,16 @@ module controller (
             CHALLENGE: begin
                 start_playback = 1'b1;
                 end
-            RESPONSE: begin
+            WAIT_RESPONSE: begin
                 start_response = 1'b1;
                 end
+	    RCV_RESPONSE: begin
+		enable_check = 1'b1;
+		end
             LOST: begin
                 end
-            WIN: begin
+            WON: begin
                 end
-            end
         endcase
     end
 
@@ -184,14 +217,22 @@ module response (
     input [3:0] note_inputs,
     input load_level,
     input start_response,
+    input enable_check,
 
-    output [3:0] note_outputs,
-    output done_response,
-    output made_mistake
+    output reg [3:0] note_outputs,
+    output reg done_response,
+    output reg made_mistake,
+    output key_pressed
 
     );
 
+    wire [3:0] correct_note;
+    wire [3:0] response_counter_state;
+    assign key_pressed = (| note_inputs);
 
+    //assign note_outputs = note_inputs;
+  
+  /*
     reg [3:0] correct_note = 4'b0000; // default
     reg [3:0] response_counter_state;
     reg enable_response_shifter;
@@ -206,20 +247,10 @@ module response (
 
     always@(posedge key_pressed)
     begin
-        assign note_outputs = note_inputs;
-        assign enable_response_shifter = 1'b1;
-        assign enable_response_counter = 1'b1;
+        note_outputs <= note_inputs;
+        enable_response_shifter <= 1'b1;
+        enable_response_counter <= 1'b1;
     end
-
-
-    shifter RESPONSE_SHIFTER (
-        .clock(clk),
-        .enable(enable_response_shifter),
-        .load(load_level),
-        .reset(reset),
-        .data(current_level),
-        .out(correct_note));
-
 
     always@(posedge key_pressed)
     begin
@@ -228,14 +259,34 @@ module response (
         else
             made_mistake <= 1'b1;
     end
+*/
+
+
+    shifter RESPONSE_SHIFTER (
+        .clock(clk),
+        .enable(enable_check),
+        .load(load_level),
+        .reset(reset),
+        .data(level_data),
+        .out(correct_note));
 
 
     counter RESPONSE_COUNTER (
         .clock(clk),
-        .reset(load_level),
-        .max(current_level_length),
-        .enable(enable_response_counter),
+        .reset(reset),
+	.load(load_level),
+        .max(level_length),
+        .enable(enable_check),
         .q(response_counter_state));
+
+
+    always@(posedge enable_check)
+    begin
+        if(correct_note == note_inputs)
+            made_mistake <= 1'b0;
+        else
+            made_mistake <= 1'b1;
+    end
 
     always@(*)
     begin
@@ -246,7 +297,7 @@ module response (
     end
 
 
-)
+
 endmodule
 
 
