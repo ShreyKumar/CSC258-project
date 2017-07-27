@@ -41,7 +41,7 @@ module game_core(
     // the number of notes comprising the current level
     wire [3:0] current_level_length;
 
-    wire [1:0] current_level_number;
+    wire [3:0] current_level_number;
 
     wire [3:0] playback_out;
     wire [3:0] response_out;
@@ -189,7 +189,7 @@ module controller (
                     end
 		ADV_RESPONSE: next_state = WAIT_RESPONSE;
                 LOST: next_state = LOST;
-                WON: next_state = done_delay ? LOAD : WON;
+                WON: next_state = done_delay ? LEVEL_SELECT : WON;
             default: next_state = START;
         endcase
     end
@@ -199,8 +199,8 @@ module controller (
     begin: enable_signals
 
         // set defaults
-        start_playback = 1'b0;
-        load_level = 1'b0;
+           start_playback = 1'b0;
+           load_level = 1'b0;
 	    enable_check = 1'b0;
 	    enable_advance = 1'b0;
             start_delay = 1'b0;
@@ -255,48 +255,51 @@ module levels (
 
     output reg [15:0] current_level,
     output reg [3:0] current_level_length,  
-    output reg [1:0] current_level_number 
+    output reg [3:0] current_level_number 
     );
-
-    always @(*)
+	/*
+    always @(posedge clk)
     begin
 	current_level <= 16'b0001_0010_0100_1000;
 	current_level_length <= 4;
 	current_level_number <= 1;
     end
-	/*
-    always @(*)
+	*/
+
+    always @(posedge clk)
     begin
     if (reset)
-         current_level_number <= 0;
+         current_level_number = 0;
     else if (increment_level)
-         current_level_number <= current_level_number + 1;
+         current_level_number = current_level_number + 1;
     end
 
     always @(*)
+    begin
         case (current_level_number)
-            2'b00: begin
-		current_level_length <= 0;
-		current_level <= 0;
+            4'b0000: begin
+		current_level_length = 0;
+		current_level = 0;
 		end
-            2'b01: begin
-		current_level_length <= 4;
-		current_level <= 16'b0001_0010_0100_1000;
+            4'b0001: begin
+		current_level_length = 4;
+		current_level = 16'b0001_0010_0100_1000;
 		end
-            2'b10: begin
-		current_level_length <= 4;
-		current_level <= 16'b0001_0010_0010_0001;
+            4'b0010: begin
+		current_level_length = 4;
+		current_level = 16'b0001_0010_0010_0001;
 		end
-            2'b11: begin
-		current_level_length <= 4;
-		current_level <= 16'b0100_0010_0001_0100;
+            4'b0011: begin
+		current_level_length = 4;
+		current_level = 16'b0100_0010_0001_0100;
 		end
             default: begin
-		current_level_length <= 0;
-		current_level <= 0;
+		current_level_length = 0;
+		current_level = 0;
 		end
         endcase
-*/
+   end
+
 
 endmodule
 
@@ -315,7 +318,7 @@ module delay(
 
     assign done_delay = (start_delay && (ratedivider_out == 0)) ? 1 : 0;
 
-    ratedivider A0 (
+    ratedivider_en A0 (
         .clock(clk),
         .period(5), // change this to 50000000
 	.enable(start_delay),
@@ -427,7 +430,6 @@ module playback (
     ratedivider A0 (
         .clock(clk),
         .period(period),
-	.enable(1'b1),
         .reset(reset),
         .q(ratedivider_out));
 
@@ -503,7 +505,29 @@ endmodule
 
 
 
-module ratedivider (clock, period, reset, enable, q);
+module ratedivider (clock, period, reset, q);
+
+    input clock;
+    input reset;
+    input [31:0] period;
+    output reg [31:0] q;
+
+    always @(posedge clock, posedge reset)
+    begin
+        if (reset)
+            q <= period - 1;
+        else
+            begin
+                if (q == 0)
+                    q <= period - 1;
+                else
+                    q <= q - 1'b1;
+            end
+    end
+
+endmodule
+
+module ratedivider_en (clock, period, reset, enable, q);
 
     input clock;
     input reset;
