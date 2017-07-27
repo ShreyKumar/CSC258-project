@@ -32,7 +32,8 @@ module game_core(
     output [3:0] state_display
     );
 
-    wire w_done_playback, w_done_response, w_made_mistake, w_load_level, w_start_playback, w_input_ready, w_enable_check, w_enable_advance;
+    wire w_done_playback, w_done_response, w_made_mistake, w_load_level, w_start_playback,
+    w_input_ready, w_enable_check, w_enable_advance, w_start_delay, w_done_delay;
 
     // each 4-bit segment represents a note
     reg [15:0] current_level = 16'b0001_0010_0100_1000;
@@ -50,14 +51,16 @@ module game_core(
 
         .current_state(state_display),
 
-	.enable_check(w_enable_check),
+    	.enable_check(w_enable_check),
         .done_playback(w_done_playback),
         .done_response(w_done_response),
         .made_mistake(w_made_mistake),
-	.input_ready(w_input_ready),
+    	.input_ready(w_input_ready),
         .load_level(w_load_level),
         .start_playback(w_start_playback),
-	.enable_advance(w_enable_advance)
+    	.enable_advance(w_enable_advance),
+        .start_delay(w_start_delay),
+        .done_delay(w_done_delay)
     );
 
     playback P0(
@@ -82,12 +85,22 @@ module game_core(
         .level_length(current_level_length),
 
         .load_level(w_load_level),
-	.input_ready(w_input_ready),
+    	.input_ready(w_input_ready),
         .enable_check(w_enable_check),
         .done_response(w_done_response),
         .made_mistake(w_made_mistake),
-	.enable_advance(w_enable_advance)
+    	.enable_advance(w_enable_advance)
     );
+
+    delay D0(
+        .clk(clk),
+        .reset(reset),
+
+        .start_delay(w_start_delay),
+        .done_delay(w_done_delay)
+    )
+
+
 
     // output key state to display, unless in challenge state
     always@(*)
@@ -112,6 +125,8 @@ module controller (
     input done_response,
     input made_mistake,
     input input_ready,
+    input start_delay,
+    output done_delay,
     output reg start_playback,
     output reg load_level,
     output reg enable_check,
@@ -125,8 +140,8 @@ module controller (
                 LOAD          = 4'd1,
                 CHALLENGE     = 4'd2,
                 WAIT_RESPONSE = 4'd3,
-		RCV_RESPONSE  = 4'd4,
-		ADV_RESPONSE  = 4'd5,
+		        RCV_RESPONSE  = 4'd4,
+		        ADV_RESPONSE  = 4'd5,
                 WON           = 4'd6,
                 LOST          = 4'd7;
 
@@ -137,7 +152,7 @@ module controller (
                 START: next_state = LOAD;
                 LOAD: next_state = CHALLENGE;
                 CHALLENGE: next_state = done_playback ? WAIT_RESPONSE : CHALLENGE;
-		WAIT_RESPONSE: 
+		WAIT_RESPONSE:
 		   begin
 			if (done_response)
                             next_state = WON;
@@ -156,7 +171,7 @@ module controller (
                     end
 		ADV_RESPONSE: next_state = WAIT_RESPONSE;
                 LOST: next_state = LOST;
-                WON: next_state = WON;
+                WON: done_delay ? next_state = LOAD ? next_state = WON;
             default: next_state = START;
         endcase
     end
@@ -168,8 +183,9 @@ module controller (
         // set defaults
         start_playback = 1'b0;
         load_level = 1'b0;
-	enable_check = 1'b0;
-	enable_advance = 1'b0;
+	    enable_check = 1'b0;
+	    enable_advance = 1'b0;
+        start_delay = 1'b0;
 
         case (current_state)
             START: begin
@@ -191,6 +207,7 @@ module controller (
             LOST: begin
                 end
             WON: begin
+                start_delay = 1'b1;
                 end
         endcase
     end
@@ -205,6 +222,28 @@ module controller (
     end
 
 endmodule
+
+
+module delay(
+    input clk,
+    input reset,
+
+    input start_delay,
+    output reg done_delay
+    );
+
+    reg [31:0] ratedivider_out;
+
+    assign done_delay = (start_delay && (ratedivider_out == 0)) ? 1 : 0;
+
+    ratedivider A0 (
+        .clock(clk),
+        .period(3),
+        .reset(reset || start_delay),
+        .q(ratedivider_out));
+
+endmodule
+
 
 
 
@@ -231,7 +270,7 @@ module response (
     // if we want multiple notes, maybe set this to negedge
     // but also retain previous inputs to check against
     always@(posedge note_inputs[0], posedge note_inputs[1], posedge note_inputs[2], posedge note_inputs[3])
-    begin  
+    begin
     	input_ready <= 1'b1;
     end
 
@@ -270,6 +309,8 @@ module response (
         .q(response_counter_state));
 
 endmodule
+
+
 
 
 
