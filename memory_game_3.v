@@ -33,16 +33,19 @@ module game_core(
     );
 
     wire w_done_playback, w_done_response, w_made_mistake, w_load_level, w_start_playback,
-    w_input_ready, w_enable_check, w_enable_advance, w_start_delay, w_done_delay;
+    w_input_ready, w_enable_check, w_enable_advance, w_start_delay, w_done_delay, w_increment_level;
 
     // each 4-bit segment represents a note
-    reg [15:0] current_level = 16'b0001_0010_0100_1000;
+    wire [15:0] current_level;
 
     // the number of notes comprising the current level
-    reg [3:0] current_level_length = 4;
+    wire [3:0] current_level_length;
+
+    wire [1:0] current_level_number;
 
     wire [3:0] playback_out;
     wire [3:0] response_out;
+
 
     // manages game state
     controller C0(
@@ -60,7 +63,19 @@ module game_core(
         .start_playback(w_start_playback),
     	.enable_advance(w_enable_advance),
         .start_delay(w_start_delay),
-        .done_delay(w_done_delay)
+        .done_delay(w_done_delay),
+	.increment_level(w_increment_level)
+    );
+
+    levels L0(
+        .clk(clk),
+        .reset(reset),
+	
+	.increment_level(w_increment_level),
+
+	.current_level(current_level),
+	.current_level_length(current_level_length),
+        .current_level_number(current_level_number)
     );
 
     playback P0(
@@ -98,7 +113,7 @@ module game_core(
 
         .start_delay(w_start_delay),
         .done_delay(w_done_delay)
-    )
+    );
 
 
 
@@ -125,8 +140,9 @@ module controller (
     input done_response,
     input made_mistake,
     input input_ready,
-    input start_delay,
-    output done_delay,
+    output reg start_delay,
+    input done_delay,
+    output reg increment_level,
     output reg start_playback,
     output reg load_level,
     output reg enable_check,
@@ -138,10 +154,11 @@ module controller (
 
     localparam  START         = 4'd0,
                 LOAD          = 4'd1,
+		LEVEL_SELECT  = 4'd8,
                 CHALLENGE     = 4'd2,
                 WAIT_RESPONSE = 4'd3,
-		        RCV_RESPONSE  = 4'd4,
-		        ADV_RESPONSE  = 4'd5,
+		RCV_RESPONSE  = 4'd4,
+		ADV_RESPONSE  = 4'd5,
                 WON           = 4'd6,
                 LOST          = 4'd7;
 
@@ -149,7 +166,8 @@ module controller (
     always@(*)
     begin: state_table
             case (current_state)
-                START: next_state = LOAD;
+                START: next_state = LEVEL_SELECT;
+		LEVEL_SELECT: next_state = LOAD;
                 LOAD: next_state = CHALLENGE;
                 CHALLENGE: next_state = done_playback ? WAIT_RESPONSE : CHALLENGE;
 		WAIT_RESPONSE:
@@ -171,7 +189,7 @@ module controller (
                     end
 		ADV_RESPONSE: next_state = WAIT_RESPONSE;
                 LOST: next_state = LOST;
-                WON: done_delay ? next_state = LOAD ? next_state = WON;
+                WON: next_state = done_delay ? LOAD : WON;
             default: next_state = START;
         endcase
     end
@@ -185,11 +203,15 @@ module controller (
         load_level = 1'b0;
 	    enable_check = 1'b0;
 	    enable_advance = 1'b0;
-        start_delay = 1'b0;
+            start_delay = 1'b0;
+	    increment_level = 1'b0;
 
         case (current_state)
             START: begin
                 end
+	    LEVEL_SELECT: begin
+		increment_level = 1'b1;
+		end
             LOAD: begin
                 load_level = 1'b1;
                 end
@@ -224,22 +246,80 @@ module controller (
 endmodule
 
 
+
+module levels (
+    input clk,
+    input reset,
+
+    input increment_level,
+
+    output reg [15:0] current_level,
+    output reg [3:0] current_level_length,  
+    output reg [1:0] current_level_number 
+    );
+
+    always @(*)
+    begin
+	current_level <= 16'b0001_0010_0100_1000;
+	current_level_length <= 4;
+	current_level_number <= 1;
+    end
+	/*
+    always @(*)
+    begin
+    if (reset)
+         current_level_number <= 0;
+    else if (increment_level)
+         current_level_number <= current_level_number + 1;
+    end
+
+    always @(*)
+        case (current_level_number)
+            2'b00: begin
+		current_level_length <= 0;
+		current_level <= 0;
+		end
+            2'b01: begin
+		current_level_length <= 4;
+		current_level <= 16'b0001_0010_0100_1000;
+		end
+            2'b10: begin
+		current_level_length <= 4;
+		current_level <= 16'b0001_0010_0010_0001;
+		end
+            2'b11: begin
+		current_level_length <= 4;
+		current_level <= 16'b0100_0010_0001_0100;
+		end
+            default: begin
+		current_level_length <= 0;
+		current_level <= 0;
+		end
+        endcase
+*/
+
+endmodule
+
+
+
+
 module delay(
     input clk,
     input reset,
 
     input start_delay,
-    output reg done_delay
+    output done_delay
     );
 
-    reg [31:0] ratedivider_out;
+    wire [31:0] ratedivider_out;
 
     assign done_delay = (start_delay && (ratedivider_out == 0)) ? 1 : 0;
 
     ratedivider A0 (
         .clock(clk),
-        .period(3),
-        .reset(reset || start_delay),
+        .period(5), // change this to 50000000
+	.enable(start_delay),
+        .reset(reset),
         .q(ratedivider_out));
 
 endmodule
@@ -347,6 +427,7 @@ module playback (
     ratedivider A0 (
         .clock(clk),
         .period(period),
+	.enable(1'b1),
         .reset(reset),
         .q(ratedivider_out));
 
@@ -422,10 +503,11 @@ endmodule
 
 
 
-module ratedivider (clock, period, reset, q);
+module ratedivider (clock, period, reset, enable, q);
 
     input clock;
     input reset;
+    input enable;
     input [31:0] period;
     output reg [31:0] q;
 
@@ -433,13 +515,13 @@ module ratedivider (clock, period, reset, q);
     begin
         if (reset)
             q <= period - 1;
-        else
+        else if (enable == 1'b1)
             begin
                 if (q == 0)
                     q <= period - 1;
                 else
                     q <= q - 1'b1;
-        end
+            end
     end
 
 endmodule

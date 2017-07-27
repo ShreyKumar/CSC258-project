@@ -90,4 +90,4 @@ force {KEY[2]} 0
 force {KEY[3]} 1 
 
 force {CLOCK_50} 0 0, 1 10ns -repeat 20ns
-run 200ns
+run 400ns
