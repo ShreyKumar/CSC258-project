@@ -22,16 +22,18 @@ add wave -r {/*}
 
 # reset, set initial values
 
-force {SW[6]} 0
-force {SW[7]} 0
+force {SW[6]} 1
+force {SW[7]} 1
 force {SW[8]} 0
 force {SW[9]} 0
-
 
 force {KEY[0]} 0
 force {KEY[1]} 0
 force {KEY[2]} 0
 force {KEY[3]} 0
+
+
+force {SW[1]} 1
 
 force {SW[0]} 0
 run 10ns
@@ -49,42 +51,26 @@ run 10ns
 force {CLOCK_50} 0 0, 1 10ns -repeat 20ns
 run 400ns
 
-force {KEY[0]} 1
-force {KEY[1]} 0 
-force {KEY[2]} 0 
-force {KEY[3]} 0 
-
-
-force {CLOCK_50} 0 0, 1 10ns -repeat 20ns
-run 200ns
-
-force {KEY[0]} 0
-force {KEY[1]} 0 
-force {KEY[2]} 0 
-force {KEY[3]} 0 
-
-force {CLOCK_50} 0 0, 1 10ns -repeat 20ns
-run 200ns
-
-force {KEY[0]} 0
-force {KEY[1]} 1 
-force {KEY[2]} 0 
-force {KEY[3]} 0 
-
-force {CLOCK_50} 0 0, 1 10ns -repeat 20ns
-run 200ns
-
-force {KEY[0]} 0
-force {KEY[1]} 0 
-force {KEY[2]} 0 
-force {KEY[3]} 0 
-
-force {CLOCK_50} 0 0, 1 10ns -repeat 20ns
-run 200ns
-
 force {KEY[0]} 0
 force {KEY[1]} 0 
 force {KEY[2]} 1 
+force {KEY[3]} 0 
+
+
+force {CLOCK_50} 0 0, 1 10ns -repeat 20ns
+run 200ns
+
+force {KEY[0]} 0
+force {KEY[1]} 0 
+force {KEY[2]} 0 
+force {KEY[3]} 1 
+
+force {CLOCK_50} 0 0, 1 10ns -repeat 20ns
+run 200ns
+
+force {KEY[0]} 0
+force {KEY[1]} 0 
+force {KEY[2]} 0 
 force {KEY[3]} 0 
 
 force {CLOCK_50} 0 0, 1 10ns -repeat 20ns
@@ -104,45 +90,12 @@ force {KEY[2]} 0
 force {KEY[3]} 0 
 
 force {CLOCK_50} 0 0, 1 10ns -repeat 20ns
-run 600ns
-
-force {KEY[0]} 1
-force {KEY[1]} 0 
-force {KEY[2]} 0 
-force {KEY[3]} 0 
-
-force {CLOCK_50} 0 0, 1 10ns -repeat 20ns
-run 200ns
-
-
-force {KEY[0]} 0
-force {KEY[1]} 1 
-force {KEY[2]} 0 
-force {KEY[3]} 0 
-
-force {CLOCK_50} 0 0, 1 10ns -repeat 20ns
-run 200ns
+run 240ns
 
 force {KEY[0]} 0
 force {KEY[1]} 0 
 force {KEY[2]} 0 
-force {KEY[3]} 0 
-
-force {CLOCK_50} 0 0, 1 10ns -repeat 20ns
-run 200ns
-
-force {KEY[0]} 0
-force {KEY[1]} 1 
-force {KEY[2]} 0 
-force {KEY[3]} 0 
-
-force {CLOCK_50} 0 0, 1 10ns -repeat 20ns
-run 200ns
-
-force {KEY[0]} 1
-force {KEY[1]} 0 
-force {KEY[2]} 0 
-force {KEY[3]} 0 
+force {KEY[3]} 1 
 
 force {CLOCK_50} 0 0, 1 10ns -repeat 20ns
 run 200ns
@@ -154,46 +107,6 @@ force {KEY[3]} 0
 
 force {CLOCK_50} 0 0, 1 10ns -repeat 20ns
 run 600ns
-
-force {KEY[0]} 0
-force {KEY[1]} 0 
-force {KEY[2]} 1 
-force {KEY[3]} 0 
-
-force {CLOCK_50} 0 0, 1 10ns -repeat 20ns
-run 200ns
-
-force {KEY[0]} 0
-force {KEY[1]} 1 
-force {KEY[2]} 0 
-force {KEY[3]} 0 
-
-force {CLOCK_50} 0 0, 1 10ns -repeat 20ns
-run 200ns
-
-force {KEY[0]} 1
-force {KEY[1]} 0 
-force {KEY[2]} 0 
-force {KEY[3]} 0 
-
-force {CLOCK_50} 0 0, 1 10ns -repeat 20ns
-run 400ns
-
-force {KEY[0]} 0
-force {KEY[1]} 0 
-force {KEY[2]} 1 
-force {KEY[3]} 0 
-
-force {CLOCK_50} 0 0, 1 10ns -repeat 20ns
-run 200ns
-
-force {KEY[0]} 0
-force {KEY[1]} 0 
-force {KEY[2]} 0 
-force {KEY[3]} 0 
-
-force {CLOCK_50} 0 0, 1 10ns -repeat 20ns
-run 200ns
 
 
 

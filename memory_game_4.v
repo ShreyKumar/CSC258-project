@@ -1,4 +1,4 @@
-module memory_game_3(SW, KEY, CLOCK_50, LEDR, HEX0);
+module memory_game_4(SW, KEY, CLOCK_50, LEDR, HEX0);
     input [9:0] SW;
     input [3:0] KEY;
     input CLOCK_50;
@@ -172,6 +172,7 @@ module controller (
                 LOAD          = 4'd1,
 		LEVEL_SELECT  = 4'd8,
                 CHALLENGE     = 4'd2,
+		WAIT_CHALLENGE = 4'd9,
                 WAIT_RESPONSE = 4'd3,
 		RCV_RESPONSE  = 4'd4,
 		ADV_RESPONSE  = 4'd5,
