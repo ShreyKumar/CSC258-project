@@ -1,4 +1,4 @@
-module memory_game_5(SW, KEY, CLOCK_50, LEDR, HEX0);
+module memory_game_6(SW, KEY, CLOCK_50, LEDR, HEX0);
     input [9:0] SW;
     input [3:0] KEY;
     input CLOCK_50;
@@ -40,7 +40,7 @@ module game_core(
     w_input_ready, w_enable_check, w_enable_advance, w_start_delay, w_done_delay, w_increment_level;
 
     // each 4-bit segment represents a note
-    wire [31:0] current_level;
+    wire [47:0] current_level;
 
     // the number of notes comprising the current level
     wire [3:0] current_level_length;
@@ -170,11 +170,11 @@ module controller (
 
     localparam  START         = 4'd0,
                 LOAD          = 4'd1,
-		        LEVEL_SELECT  = 4'd8,
+		LEVEL_SELECT  = 4'd8,
                 CHALLENGE     = 4'd2,
                 WAIT_RESPONSE = 4'd3,
-		        RCV_RESPONSE  = 4'd4,
-			    ADV_RESPONSE  = 4'd5,
+		RCV_RESPONSE  = 4'd4,
+		ADV_RESPONSE  = 4'd5,
                 WON           = 4'd6,
                 LOST          = 4'd7;
 
@@ -186,22 +186,8 @@ module controller (
 		LEVEL_SELECT: next_state = LOAD;
                 LOAD: next_state = CHALLENGE;
                 CHALLENGE: next_state = done_playback ? WAIT_RESPONSE : CHALLENGE;
-		WAIT_RESPONSE:
-		   begin
-			if (done_response)
-                            next_state = WON;
-			else if (input_ready)
-			    next_state = RCV_RESPONSE;
-			else
-			    next_state = WAIT_RESPONSE;
-		   end
-                RCV_RESPONSE:
-                    begin
-			if (made_mistake)
-                            next_state = LOST;
-                        else
-                            next_state = ADV_RESPONSE;
-                    end
+		WAIT_RESPONSE: next_state = done_response ? WON : (input_ready ? RCV_RESPONSE : WAIT_RESPONSE);
+                RCV_RESPONSE: next_state = made_mistake ? LOST : ADV_RESPONSE;
 		ADV_RESPONSE: next_state = WAIT_RESPONSE;
                 LOST: next_state = LOST;
                 WON: next_state = done_delay ? LEVEL_SELECT : WON;
@@ -269,13 +255,13 @@ module levels (
     input increment_level,
     input [3:0] level_select,
 
-    output reg [31:0] current_level,
+    output reg [47:0] current_level,
     output reg [3:0] current_level_length,
     output reg [3:0] current_level_number
     );
 
     wire [31:0] random_out;
-    reg [31:0] random_level;
+    reg [47:0] random_level;
 
     always @(posedge clk)
     begin
@@ -289,7 +275,9 @@ module levels (
             random_level <= {bits_to_notes(random_out[1:0]), 4'b0000,
                              bits_to_notes(random_out[3:2]), 4'b0000,
                              bits_to_notes(random_out[5:4]), 4'b0000,
-                             bits_to_notes(random_out[7:6]), 4'b0000};
+                             bits_to_notes(random_out[7:6]), 4'b0000,
+                             bits_to_notes(random_out[9:7]), 4'b0000,
+                             bits_to_notes(random_out[11:10]), 4'b0000};
         end
     end
 
@@ -306,19 +294,19 @@ module levels (
             4'b0001: begin
 		// levels 1-3 are hard-coded
 		current_level_length <= 8;
-		current_level <= 32'b0001_0000_0010_0000_0100_0000_1000_0000;
+		current_level <= 48'b0001_0000_0010_0000_0100_0000_1000_0000_0000_0000_0000_0000;
 		end
             4'b0010: begin
-		current_level_length <= 8;
-		current_level <= 32'b0001_0000_0010_0000_0010_0000_0001_0000;
+		current_level_length <= 10;
+		current_level <= 48'b0001_0000_0010_0000_0010_0000_0001_0000_0001_0000_0000_0000;
 		end
             4'b0011: begin
-		current_level_length <= 8;
-		current_level <= 32'b0100_0000_0010_0000_0001_0000_0100_0000;
+		current_level_length <= 12;
+		current_level <= 48'b0100_0000_0010_0000_0001_0000_0100_0000_0010_0000_0001_0000;
 		end
             default: begin
 		// levels 4+ are randomly generated:
-		current_level_length <= 8;
+		current_level_length <= 12;
 		current_level <= random_level;
 		end
         endcase
@@ -381,7 +369,7 @@ module response (
     input clk,
     input reset,
 
-    input [31:0] level_data,
+    input [47:0] level_data,
     input [3:0] level_length,
     input [3:0] note_inputs,
     input load_level,
@@ -448,7 +436,7 @@ module playback (
     input clk,
     input reset,
 
-    input [31:0] level_data,
+    input [47:0] level_data,
     input [3:0] level_length,
     input load_level,
     input start_playback,
@@ -531,9 +519,9 @@ endmodule
 module shifter(clock, enable, load, reset, data, out);
 
     input clock, enable, load, reset;
-    input [31:0] data;
+    input [47:0] data;
     output [3:0] out;
-    reg [31:0] state;
+    reg [47:0] state;
 
     // async load and reset
     always @(posedge clock, posedge load, posedge reset)
@@ -546,7 +534,7 @@ module shifter(clock, enable, load, reset, data, out);
             state = state << 4;
     end
 
-    assign out = state[31:28];
+    assign out = state[47:44];
 
 endmodule
 
