@@ -79,7 +79,7 @@ module game_core(
         .clk(clk),
         .reset(reset),
 
-	// control signals	
+	// control signals
 	.increment_level(w_increment_level),
 	.level_select(level_select),
 
@@ -271,8 +271,8 @@ module levels (
     input [3:0] level_select,
 
     output reg [15:0] current_level,
-    output reg [3:0] current_level_length,  
-    output reg [3:0] current_level_number 
+    output reg [3:0] current_level_length,
+    output reg [3:0] current_level_number
     );
 
     wire [31:0] random_out;
@@ -348,7 +348,7 @@ module levels (
     end
     endfunction
 
-   
+
 endmodule
 
 
@@ -500,6 +500,72 @@ module playback (
 endmodule
 
 
+module message_decoder(state_number, level_number, segments);
+  input [4:0] state_number;
+  input [1:0] level_number;
+  output [41:0] segments;
+
+  reg [6:0] E_msg;
+  reg [6:0] 5_msg
+  reg [6:0] 0_msg;
+  reg [6:0] 9_msg;
+  reg [6:0] C_msg;
+  reg [6:0] lvl;
+  reg [6:0] blank = 7'b111_1111;
+  reg [6:0] A_msg;
+
+  reg [6:0] H_msg = 7'b000_1001;
+  reg [6:0] t_msg = 7'b000_0111;
+  reg [6:0] n_msg = 7'b100_1000;
+  reg [6:0] r_msg = 7'b100_1110;
+  reg [6:0] U_msg = 7'b100_0001;
+  reg [6:0] L_msg = 7'b100_0111;
+
+  hex_decoder H0 (
+      .hex_digit(4'hE),
+      .segments(E_msg)
+    );
+
+  hex_decoder H1 (
+      .hex_digit(4'h0),
+      .segments(0_msg)
+    );
+
+  hex_decoder H2 (
+      .hex_digit(4'h5),
+      .segments(5_msg)
+    );
+
+  hex_decoder H3 (
+      .hex_digit(4'h9),
+      .segments(9_msg)
+    );
+
+  hex_decoder H4 (
+      .hex_digit(level_number),
+      .segments(lvl)
+    );
+  hex_decoder H5 (
+      .hex_digit(4'hC),
+      .segments(C_msg)
+    );
+  hex_decoder H6 (
+      .hex_digit(4'hA),
+      .segments(A_msg)
+    );
+
+  always @ (*) begin
+    case (state_number)
+      4'h0: segments = {5_msg, E_msg, L_msg, L_msg, 0_msg, blank}; //Start stage
+      4'h2: segments = {5_msg, t_msg, A_msg, 9_msg, E_msg, lvl};
+      4'h3: segments = {U_msg, r_msg, t_msg, U_msg, r_msg, n_msg};
+      4'h6: segments = {5_msg, C_msg, 0_msg, r_msg, E_msg, blank};
+      4'h7: segments = {L_msg, 0_msg, 5_msg, E_msg, blank, blank};
+      default: segments = blank;
+    endcase
+  end
+
+endmodule
 
 module hex_decoder(hex_digit, segments);
     input [3:0] hex_digit;

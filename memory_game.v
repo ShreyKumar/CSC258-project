@@ -125,7 +125,7 @@ module controller (
                 LOAD          = 4'd1,
                 CHALLENGE     = 4'd2,
                 WAIT_RESPONSE = 4'd3,
-		RCV_RESPONSE  = 4'd4,
+		            RCV_RESPONSE  = 4'd4,
                 WON           = 4'd5,
                 LOST          = 4'd6;
 
@@ -136,17 +136,17 @@ module controller (
                 START: next_state = LOAD;
                 LOAD: next_state = CHALLENGE;
                 CHALLENGE: next_state = done_playback ? WAIT_RESPONSE : CHALLENGE;
-		WAIT_RESPONSE: 
-		   begin
-			if (done_response)
-                            next_state = WON;
-			else if (made_mistake)
-			    next_state = LOST;
-			else if (key_pressed)
-			    next_state = RCV_RESPONSE;
-			else
-			    next_state = WAIT_RESPONSE;
-		   end
+            		WAIT_RESPONSE:
+            		   begin
+            			if (done_response)
+                                        next_state = WON;
+            			else if (made_mistake)
+            			    next_state = LOST;
+            			else if (key_pressed)
+            			    next_state = RCV_RESPONSE;
+            			else
+            			    next_state = WAIT_RESPONSE;
+            		   end
 			//next_state = key_pressed ? RCV_RESPONSE : WAIT_RESPONSE;
                 RCV_RESPONSE:
                     begin
@@ -231,7 +231,7 @@ module response (
     assign key_pressed = (| note_inputs);
 
     //assign note_outputs = note_inputs;
-  
+
   /*
     reg [3:0] correct_note = 4'b0000; // default
     reg [3:0] response_counter_state;
@@ -370,7 +370,7 @@ module hex_decoder(hex_digit, segments);
     always @(*)
         case (hex_digit)
             4'h0: segments = 7'b100_0000;
-            4'h1: segments = 7'b111_1001;
+            4'h1: segments = 7'b100_1110; // this is actually "r" not 1  7'b111_1001
             4'h2: segments = 7'b010_0100;
             4'h3: segments = 7'b011_0000;
             4'h4: segments = 7'b001_1001;
