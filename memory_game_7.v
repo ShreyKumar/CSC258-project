@@ -19,7 +19,7 @@ module memory_game_7(SW, KEY, CLOCK_50, LEDR, HEX0, HEX1, HEX2, HEX3, HEX4, HEX5
         .reset(SW[0]),
 	.start_game(SW[1]),
 	.level_select(SW[9:6]),
-        .note_inputs(KEY[3:0]),
+        .note_inputs({~KEY[3], ~KEY[2], ~KEY[1], ~KEY[0]}),
         .note_outputs(LEDR[3:0]),
 	.current_level_number(level_display),
         .current_state(state_display)
@@ -287,7 +287,7 @@ module levels (
                              bits_to_notes(random_out[3:2]), 4'b0000,
                              bits_to_notes(random_out[5:4]), 4'b0000,
                              bits_to_notes(random_out[7:6]), 4'b0000,
-                             bits_to_notes(random_out[9:7]), 4'b0000,
+                             bits_to_notes(random_out[9:8]), 4'b0000,
                              bits_to_notes(random_out[11:10]), 4'b0000};
         end
     end
@@ -302,16 +302,21 @@ module levels (
 		current_level_length <= 0;
 		current_level <= 0;
 		end
-            4'b0001: begin
+		      4'b0001: begin
 		// levels 1-3 are hard-coded
 		current_level_length <= 8;
 		current_level <= 48'b0001_0000_0010_0000_0100_0000_1000_0000_0000_0000_0000_0000;
 		end
             4'b0010: begin
+		// levels 1-3 are hard-coded
+		current_level_length <= 8;
+		current_level <= 48'b0001_0000_0010_0000_0100_0000_1000_0000_0000_0000_0000_0000;
+		end
+            4'b0011: begin
 		current_level_length <= 10;
 		current_level <= 48'b0001_0000_0010_0000_0010_0000_0001_0000_0001_0000_0000_0000;
 		end
-            4'b0011: begin
+            4'b0100: begin
 		current_level_length <= 12;
 		current_level <= 48'b0100_0000_0010_0000_0001_0000_0100_0000_0010_0000_0001_0000;
 		end
@@ -366,7 +371,7 @@ module delay(
 
     ratedivider_en A0 (
         .clock(clk),
-        .period(8), // change this to 50000000
+        .period(50000000), // change this to 50000000
 	.enable(start_delay),
         .reset(reset),
         .q(ratedivider_out));
@@ -395,20 +400,37 @@ module response (
 
     wire [3:0] correct_note;
     wire [3:0] response_counter_state;
+	 
+	 reg [3:0] last_notes = 4'b1111;
 
     // this is asyncronous, how should we fix it?
-    always@(note_inputs[0], note_inputs[1], note_inputs[2], note_inputs[3])
-    begin
-    	input_ready <= 1'b1;
-    end
 
-    always@(enable_check)
+
+    always@(posedge clk)
     begin
-	input_ready <= 1'b0;
-        if(correct_note == note_inputs)
-            made_mistake <= 1'b0;
-        else
-            made_mistake <= 1'b1;
+	     if (enable_check)
+          begin
+		      input_ready <= 1'b0;
+				last_notes <= note_inputs;
+            if(correct_note == note_inputs)
+                made_mistake <= 1'b0;
+            else
+                made_mistake <= 1'b1;	
+		    end
+		  else
+		    begin
+			   //last_notes <= note_inputs;
+				if (last_notes != note_inputs)
+				  begin
+				    input_ready = 1'b1;
+					 last_notes <= note_inputs;
+				  end
+				else
+				  begin
+				    input_ready = 1'b0;
+				  end
+		      //input_ready <= note_inputs[0] || note_inputs[1] || note_inputs[2] || note_inputs[3];
+		    end
     end
 
     always@(posedge clk)
@@ -456,7 +478,7 @@ module playback (
     );
 
     // duration (in clock cycles) of notes during challenge
-    wire [31:0] period =  6; // 25000000;
+    wire [31:0] period =  25000000; // 25000000;
 
     wire enable_playback;
     wire [31:0] ratedivider_out;
