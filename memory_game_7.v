@@ -28,7 +28,7 @@ module memory_game_7(SW, KEY, CLOCK_50, LEDR, HEX0, HEX1, HEX2, HEX3, HEX4, HEX5
     // displays the current state
     message_decoder M0(
 	.state_number(state_display[3:0]),
-	.level_number(level_display[3:0] - 1),
+	.level_number(level_display[3:0]),
 	.segments({HEX5, HEX4, HEX3, HEX2, HEX1, HEX0})
     );
 endmodule
@@ -667,7 +667,7 @@ module message_decoder(state_number, level_number, segments);
     );
 
   hex_decoder H4 (
-      .hex_digit(level_number),
+      .hex_digit(level_number - 1),
       .segments(lvl)
     );
   hex_decoder H5 (
